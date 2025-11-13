@@ -2,9 +2,73 @@ import pygame
 import pygame.gfxdraw
 import networkx as nx
 import math
+import ast
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import tkinter as tk
+from tkinter import filedialog
 
-# --- Create a random graph ---
-G = nx.erdos_renyi_graph(10, 0.3)
+file_name = "Pygame.py"
+
+class analyzeFunction(ast.NodeVisitor):
+    def __init__(self,funcNode):
+        self.name = funcNode.name
+        self.variables = []
+        self.calls = []
+        self.returns = []
+        self.visit(funcNode)
+    
+    def visit_Assign(self, node):
+        targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
+        self.variables.extend(targets)
+        self.generic_visit(node)
+
+    def visit_Call(self, node):
+        if isinstance(node.func, ast.Name):
+            self.calls.append(node.func.id)
+            # isinstance(node.func, ast.Attribute):
+            # self.calls.append(f"{ast.unparse(node.func)}")
+        self.generic_visit(node)
+
+    def visit_Return(self, node):
+        if node.value:
+            self.returns.append(ast.dump(node.value))
+        self.generic_visit(node)
+
+
+# Open and parse file
+with open(file_name, 'r') as file:
+    sourceCode = file.read()
+tree = ast.parse(sourceCode, filename=file_name)
+
+# Extract functions from file
+functions = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
+
+analyzedFunctions = {}
+
+# Analyze each function
+for func in functions:
+    analyzer = analyzeFunction(func)
+    analyzedFunctions[analyzer.name] ={
+        'variables' : analyzer.variables, 
+        'calls' : set(analyzer.calls) if analyzer.calls != [] else analyzer.calls, 
+       'returns' : analyzer.returns}
+
+G = nx.DiGraph()
+edges = []
+for key in analyzedFunctions:
+    print(key)
+    edges.append((key, ''))
+    for call in analyzedFunctions[key]['calls']:
+        if edges[-1][-1] == '':
+            edges.pop()
+        edges.append((key, call))
+    
+
+print(edges)
+G.add_edges_from(edges)
+
 pos = nx.spring_layout(G, seed=42)
 
 # --- Pygame setup ---
