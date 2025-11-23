@@ -21,6 +21,7 @@ GREEN = (100, 200, 150)
 WHITE = (255,255,255)
 BLACK = (0,0,0)
 
+# Dragging nodes
 dragging_node = None
 offset_x, offset_y = 0, 0
 
@@ -106,7 +107,7 @@ def draw_graph(analyzedFunctions, class_to_funcs, classes):
 
     # --- Layout ---
     pos = nx.nx_agraph.graphviz_layout(G, prog="neato",args="-Gstart=44")
-
+ 
     def scale_positions(pos):
         xs = [x for x, y in pos.values()]
         ys = [y for x, y in pos.values()]
@@ -118,8 +119,8 @@ def draw_graph(analyzedFunctions, class_to_funcs, classes):
             nx = (x - min_x) / (max_x - min_x)
             ny = (y - min_y) / (max_y - min_y)
             
-            sx = 250 + nx * 500
-            sy = 50 + ny * 500
+            sx = 50 + nx * 668
+            sy = 50 + ny * 668
             
             scaled[node] = [sx, sy]
         
@@ -147,10 +148,6 @@ def draw_graph(analyzedFunctions, class_to_funcs, classes):
             x = start[0] + (y - start[1]) / slope
 
         return (x, y)
-
-    
-
-
     
     return node_sizes, scaled_pos, box_intersection, G
 
@@ -169,26 +166,29 @@ def draw_graph(analyzedFunctions, class_to_funcs, classes):
 # Pygame Setup
 pygame.init()
 pygame.display.set_caption('Code Visualizer')
-screen = pygame.display.set_mode((800, 600))
-background = pygame.Surface((800, 600))
+screen = pygame.display.set_mode((1024, 768))
+background = pygame.Surface((1024, 768))
 background.fill(WHITE)
-manager = pygame_gui.UIManager((800, 600))
+manager = pygame_gui.UIManager((1024, 768))
 clock = pygame.time.Clock()
 
 # Create a font
-font = pygame.font.Font(None, 28)
+font1 = pygame.font.Font(None, 28)
+font2 = pygame.font.Font(None, 18)
 
 # Graph area
-graph_box = pygame.Rect(200,0,600,600)
+graph_box = pygame.Rect(256,0,768,768)
+graph_surface = screen.subsurface(graph_box)
 
 # Create UI buttons 
-select_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect(40,250,125,25), text='Select File', manager=manager)
-parse_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect(40,288,125,25), text='Parse File', manager=manager)
-diagram_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect(40,326,125,25), text='Show Diagram', manager=manager)
+select_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect(51,320,160,32), text='Select File', manager=manager)
+parse_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect(51,369,160,32), text='Parse File', manager=manager)
+diagram_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect(51,417,160,32), text='Show Diagram', manager=manager)
+save_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect(-500,-500, 160,32),text='Save Image',manager=manager)
 
 # UI area creation
 def make_ui():
-    pygame.draw.rect(screen, GREEN, (0,0,200,600))
+    pygame.draw.rect(screen, GREEN, (0,0,256,768))
     
     
 is_running = True
@@ -202,6 +202,9 @@ while is_running:
         if displayText >= 3:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
+                mx -= graph_box.x
+                my -= graph_box.y
+                
                 for n, (x, y) in scaled_pos.items():
                     w, h = node_sizes[n]
                     rect = pygame.Rect(x - w//2, y - h//2, w, h)
@@ -216,6 +219,9 @@ while is_running:
 
             elif event.type == pygame.MOUSEMOTION and dragging_node is not None:
                 mx, my = pygame.mouse.get_pos()
+                mx -= graph_box.x
+                my -= graph_box.y
+                
                 scaled_pos[dragging_node][0] = mx + offset_x
                 scaled_pos[dragging_node][1] = my + offset_y
 
@@ -231,9 +237,6 @@ while is_running:
                 if filePath:
                     displayText = 1
                     print("selected:",filePath)
-                else:
-                    displayText = 0
-                    
             elif event.ui_element == parse_button:
                 if displayText == 1:
                     analyzedFunctions, class_to_funcs, classes = parse_file(filePath)
@@ -242,6 +245,9 @@ while is_running:
                 if displayText == 2:
                     node_sizes, scaled_pos, box_intersection, G = draw_graph(analyzedFunctions, class_to_funcs, classes)
                     displayText = 3
+            elif event.ui_element == save_button:
+                if displayText >= 3 and save_button.get_relative_rect().topleft == (51,672):
+                    pygame.image.save(graph_surface, "cropped_output.png")
             
         manager.process_events(event)
 
@@ -253,11 +259,11 @@ while is_running:
     text = None
     match displayText:
         case 0:
-            text = font.render("Please Select a File", True, BLACK)
+            text = font1.render("Please Select a File", True, BLACK)
         case 1:
-            text = font.render("File Ready to Parse", True, BLACK)
+            text = font1.render("File Ready to Parse", True, BLACK)
         case 2:
-            text = font.render("Graph Ready to be Displayed", True, BLACK)
+            text = font1.render("Graph Ready to be Displayed", True, BLACK)
 
     if displayText < 3:
         graph_area = text.get_rect(center=graph_box.center)
@@ -314,7 +320,7 @@ while is_running:
         # Recompute node sizes each frame so font/text changes work
         node_sizes.clear()
         for n in scaled_pos:
-            label = font.render(str(n), True, (0, 0, 0))
+            label = font2.render(str(n), True, (0, 0, 0))
             lw, lh = label.get_width(), label.get_height()
             pad_x = 40
             pad_y = 20
@@ -326,7 +332,7 @@ while is_running:
         screen.fill((255, 255, 255))
 
         for u, v in G.edges():
-            draw_arrow(screen, (0, 0, 0), scaled_pos[u], scaled_pos[v], node_sizes[v])
+            draw_arrow(graph_surface, (0, 0, 0), scaled_pos[u], scaled_pos[v], node_sizes[v])
 
         for n, (x, y) in scaled_pos.items():
             node_type = G.nodes[n]['type'] if G.nodes[n] != {} else 0
@@ -336,19 +342,24 @@ while is_running:
 
         # (100, 200, 150) Is Green, but Original blue is (100, 150, 255)
         # I am thinking of having colors be variables instead of int values so its easier to change, and can involve some user customization. For the future.
-            if node_type:
+            if node_type:   # GREEN = Function  BLUE = Class    ORANGE = Predefined function from python
                 if node_type == "function":
-                    pygame.draw.rect(screen, GREEN, rect, border_radius=8) 
+                    pygame.draw.rect(graph_surface, GREEN, rect, border_radius=8) 
                 else:
-                    pygame.draw.rect(screen, BLUE, rect, border_radius=8) 
+                    pygame.draw.rect(graph_surface, BLUE, rect, border_radius=8) 
             else:
-                pygame.draw.rect(screen, ORANGE, rect, border_radius=8) 
+                pygame.draw.rect(graph_surface, ORANGE, rect, border_radius=8) 
         
 
-            pygame.draw.rect(screen, (0, 0, 0), rect, width=2, border_radius=8)
+            pygame.draw.rect(graph_surface, (0, 0, 0), rect, width=2, border_radius=8)
 
-            label = font.render(str(n), True, (255, 255, 255))
-            screen.blit(label, (x - label.get_width()//2, y - label.get_height()//2))
+            label = font2.render(str(n), True, (255, 255, 255))
+            graph_surface.blit(label, (x - label.get_width()//2, y - label.get_height()//2))
+    
+    if displayText == 3:
+        save_button.set_relative_position((51, 672))
+    else:
+        save_button.set_relative_position((-500, -500))
     
     make_ui()
     manager.draw_ui(screen)
