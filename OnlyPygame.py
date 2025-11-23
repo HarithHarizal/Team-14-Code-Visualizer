@@ -107,23 +107,26 @@ def draw_graph(analyzedFunctions, class_to_funcs, classes):
     # --- Layout ---
     pos = nx.nx_agraph.graphviz_layout(G, prog="neato",args="-Gstart=44")
 
-
-    def normalize_positions(pos, width, height, margin=100):
+    def scale_positions(pos):
         xs = [x for x, y in pos.values()]
         ys = [y for x, y in pos.values()]
         min_x, max_x = min(xs), max(xs)
         min_y, max_y = min(ys), max(ys)
+        
         scaled = {}
-        for node, (x, y) in pos.items():
-            nx_ = (x - min_x) / (max_x - min_x)
-            ny_ = (y - min_y) / (max_y - min_y)
-            sx = margin + nx_ * (width - 2 * margin)
-            sy = margin + ny_ * (height - 2 * margin)
-            scaled[node] = [int(sx), int(sy)]
+        for node, (x,y) in pos.items():
+            nx = (x - min_x) / (max_x - min_x)
+            ny = (y - min_y) / (max_y - min_y)
+            
+            sx = 250 + nx * 500
+            sy = 50 + ny * 500
+            
+            scaled[node] = [sx, sy]
+        
         return scaled
+        
+    scaled_pos = scale_positions(pos)
 
-    WIDTH, HEIGHT = 600, 600
-    scaled_pos = normalize_positions(pos, WIDTH, HEIGHT)
     node_sizes = {}
 
     # Compute intersection of a line with a box of size w×h
@@ -150,137 +153,6 @@ def draw_graph(analyzedFunctions, class_to_funcs, classes):
 
     
     return node_sizes, scaled_pos, box_intersection, G
-
-def yes(node_sizes, scaled_pos, box_intersection, G):
-    global dragging_node, offset_x, offset_y
-    
-    def draw_arrow(screen, color, start, end, target_size):
-
-        w, h = target_size
-        dx = end[0] - start[0]
-        dy = end[1] - start[1]
-        dist = math.hypot(dx, dy)
-        if dist == 0:
-            return
-
-        adjusted_end = box_intersection(start, end, w, h)
-        adjusted_start = box_intersection(end, start, w, h)
-
-        pygame.gfxdraw.line(
-            screen,
-            int(adjusted_start[0]), int(adjusted_start[1]),
-            int(adjusted_end[0]), int(adjusted_end[1]),
-            color
-        )
-
-        ux = dx / dist
-        uy = dy / dist
-
-        arrow_size = 14
-        base_x = adjusted_end[0] - arrow_size * ux
-        base_y = adjusted_end[1] - arrow_size * uy
-
-        angle = math.radians(25)
-
-        def rotate(px, py, theta):
-            return px * math.cos(theta) - py * math.sin(theta), px * math.sin(theta) + py * math.cos(theta)
-
-        left_dx, left_dy = rotate(-ux, -uy, angle)
-        right_dx, right_dy = rotate(-ux, -uy, -angle)
-
-        left_pt = (base_x + left_dx * arrow_size, base_y + left_dy * arrow_size)
-        right_pt = (base_x + right_dx * arrow_size, base_y + right_dy * arrow_size)
-
-        pts = [
-            (int(adjusted_end[0]), int(adjusted_end[1])),
-            (int(left_pt[0]), int(left_pt[1])),
-            (int(right_pt[0]), int(right_pt[1]))
-        ]
-
-        pygame.gfxdraw.filled_polygon(screen, pts, color)
-        pygame.gfxdraw.aapolygon(screen, pts, color)
-    
-    # Recompute node sizes each frame so font/text changes work
-    node_sizes.clear()
-    for n in scaled_pos:
-        label = font.render(str(n), True, (0, 0, 0))
-        lw, lh = label.get_width(), label.get_height()
-        pad_x = 40
-        pad_y = 20
-        w = lw + pad_x
-        h = lh + pad_y
-        node_sizes[n] = (w, h)
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            mx, my = pygame.mouse.get_pos()
-            for n, (x, y) in scaled_pos.items():
-                w, h = node_sizes[n]
-                rect = pygame.Rect(x - w//2, y - h//2, w, h)
-                if rect.collidepoint(mx, my):
-                    dragging_node = n
-                    offset_x = x - mx
-                    offset_y = y - my
-                    break
-
-        elif event.type == pygame.MOUSEBUTTONUP:
-            dragging_node = None
-
-        elif event.type == pygame.MOUSEMOTION and dragging_node is not None:
-            mx, my = pygame.mouse.get_pos()
-            scaled_pos[dragging_node][0] = mx + offset_x
-            scaled_pos[dragging_node][1] = my + offset_y
-
-    screen.fill((255, 255, 255))
-
-    for u, v in G.edges():
-        draw_arrow(screen, (0, 0, 0), scaled_pos[u], scaled_pos[v], node_sizes[v])
-
-    for n, (x, y) in scaled_pos.items():
-        node_type = G.nodes[n]['type'] if G.nodes[n] != {} else 0
-        
-        w, h = node_sizes[n]
-        rect = pygame.Rect(x - w//2, y - h//2, w, h)
-
-      # (100, 200, 150) Is Green, but Original blue is (100, 150, 255)
-      # I am thinking of having colors be variables instead of int values so its easier to change, and can involve some user customization. For the future.
-        if node_type:
-            if node_type == "function":
-                pygame.draw.rect(screen, GREEN, rect, border_radius=8) 
-            else:
-                pygame.draw.rect(screen, BLUE, rect, border_radius=8) 
-        else:
-            pygame.draw.rect(screen, ORANGE, rect, border_radius=8) 
-    
-
-        pygame.draw.rect(screen, (0, 0, 0), rect, width=2, border_radius=8)
-
-        label = font.render(str(n), True, (255, 255, 255))
-        screen.blit(label, (x - label.get_width()//2, y - label.get_height()//2))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -326,6 +198,26 @@ while is_running:
     time_delta = clock.tick(60)/1000.0
 
     for event in pygame.event.get():
+        
+        if displayText >= 3:
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mx, my = pygame.mouse.get_pos()
+                for n, (x, y) in scaled_pos.items():
+                    w, h = node_sizes[n]
+                    rect = pygame.Rect(x - w//2, y - h//2, w, h)
+                    if rect.collidepoint(mx, my):
+                        dragging_node = n
+                        offset_x = x - mx
+                        offset_y = y - my
+                        break
+
+            elif event.type == pygame.MOUSEBUTTONUP:
+                dragging_node = None
+
+            elif event.type == pygame.MOUSEMOTION and dragging_node is not None:
+                mx, my = pygame.mouse.get_pos()
+                scaled_pos[dragging_node][0] = mx + offset_x
+                scaled_pos[dragging_node][1] = my + offset_y
 
         if event.type == pygame.QUIT:
 
@@ -373,7 +265,90 @@ while is_running:
         
         
     if displayText >= 3:
-        yes(node_sizes, scaled_pos, box_intersection, G)
+        def draw_arrow(screen, color, start, end, target_size):
+
+            w, h = target_size
+            dx = end[0] - start[0]
+            dy = end[1] - start[1]
+            dist = math.hypot(dx, dy)
+            if dist == 0:
+                return
+
+            adjusted_end = box_intersection(start, end, w, h)
+            adjusted_start = box_intersection(end, start, w, h)
+
+            pygame.gfxdraw.line(
+                screen,
+                int(adjusted_start[0]), int(adjusted_start[1]),
+                int(adjusted_end[0]), int(adjusted_end[1]),
+                color
+            )
+
+            ux = dx / dist
+            uy = dy / dist
+
+            arrow_size = 14
+            base_x = adjusted_end[0] - arrow_size * ux
+            base_y = adjusted_end[1] - arrow_size * uy
+
+            angle = math.radians(25)
+
+            def rotate(px, py, theta):
+                return px * math.cos(theta) - py * math.sin(theta), px * math.sin(theta) + py * math.cos(theta)
+
+            left_dx, left_dy = rotate(-ux, -uy, angle)
+            right_dx, right_dy = rotate(-ux, -uy, -angle)
+
+            left_pt = (base_x + left_dx * arrow_size, base_y + left_dy * arrow_size)
+            right_pt = (base_x + right_dx * arrow_size, base_y + right_dy * arrow_size)
+
+            pts = [
+                (int(adjusted_end[0]), int(adjusted_end[1])),
+                (int(left_pt[0]), int(left_pt[1])),
+                (int(right_pt[0]), int(right_pt[1]))
+            ]
+
+            pygame.gfxdraw.filled_polygon(screen, pts, color)
+            pygame.gfxdraw.aapolygon(screen, pts, color)
+        
+        # Recompute node sizes each frame so font/text changes work
+        node_sizes.clear()
+        for n in scaled_pos:
+            label = font.render(str(n), True, (0, 0, 0))
+            lw, lh = label.get_width(), label.get_height()
+            pad_x = 40
+            pad_y = 20
+            w = lw + pad_x
+            h = lh + pad_y
+            node_sizes[n] = (w, h)
+            
+
+        screen.fill((255, 255, 255))
+
+        for u, v in G.edges():
+            draw_arrow(screen, (0, 0, 0), scaled_pos[u], scaled_pos[v], node_sizes[v])
+
+        for n, (x, y) in scaled_pos.items():
+            node_type = G.nodes[n]['type'] if G.nodes[n] != {} else 0
+            
+            w, h = node_sizes[n]
+            rect = pygame.Rect(x - w//2, y - h//2, w, h)
+
+        # (100, 200, 150) Is Green, but Original blue is (100, 150, 255)
+        # I am thinking of having colors be variables instead of int values so its easier to change, and can involve some user customization. For the future.
+            if node_type:
+                if node_type == "function":
+                    pygame.draw.rect(screen, GREEN, rect, border_radius=8) 
+                else:
+                    pygame.draw.rect(screen, BLUE, rect, border_radius=8) 
+            else:
+                pygame.draw.rect(screen, ORANGE, rect, border_radius=8) 
+        
+
+            pygame.draw.rect(screen, (0, 0, 0), rect, width=2, border_radius=8)
+
+            label = font.render(str(n), True, (255, 255, 255))
+            screen.blit(label, (x - label.get_width()//2, y - label.get_height()//2))
     
     make_ui()
     manager.draw_ui(screen)
