@@ -27,6 +27,7 @@ BLUE = (100, 150, 255)
 GREEN = (100, 200, 150)
 WHITE = (255,255,255)
 BLACK = (0,0,0)
+BLUE2 = (0, 65, 140)
 
 # Dragging nodes
 dragging_node = None
@@ -57,24 +58,22 @@ def parse_file(file_name):
             self.generic_visit(node)
 
 
-    # --- Parse file ---
     with open(file_name, 'r') as file:
         sourceCode = file.read()
     tree = ast.parse(sourceCode, filename=file_name)
 
-    # --- Assign parent references so we know which class a function belongs to ---
+    # Assign parent references
     for node in ast.walk(tree):
         for child in ast.iter_child_nodes(node):
             child.parent = node
 
-    # --- Extract functions and classes ---
+    # Extract functions and classes
     functions = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
     classes = [node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
 
     analyzedFunctions = {}
     class_to_funcs = {}
 
-    # --- Analyze functions ---
     for func in functions:
         analyzer = analyzeFunction(func)
         analyzedFunctions[analyzer.name] = {
@@ -107,12 +106,13 @@ def draw_graph(analyzedFunctions, class_to_funcs, classes):
             if func in G:
                 G.add_edge(class_name, func)
 
-    # Add standalone classes (no functions)
+    # Add classes by themselves
     for cls in classes:
         if cls.name not in G:
             G.add_node(cls.name, type='class')
 
-    # --- Layout ---
+    
+    # Node layout
     pos = nx.nx_agraph.graphviz_layout(G, prog="neato",args="-Gstart=44")
  
     def scale_positions(pos):
@@ -195,7 +195,7 @@ save_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect(-500,-500, 
 
 # UI area creation
 def make_ui():
-    pygame.draw.rect(screen, GREEN, (0,0,256,768))
+    pygame.draw.rect(screen, BLUE2, (0,0,256,768))
     
 # Text filed creation
 name_input = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(-500, 252, 300, 25), manager=manager)
@@ -397,8 +397,7 @@ while is_running:
             w, h = node_sizes[n]
             rect = pygame.Rect(x - w//2, y - h//2, w, h)
 
-        # (100, 200, 150) Is Green, but Original blue is (100, 150, 255)
-        # I am thinking of having colors be variables instead of int values so its easier to change, and can involve some user customization. For the future.
+        
             if node_type:   # GREEN = Function  BLUE = Class    ORANGE = Predefined function from python
                 if node_type == "function":
                     pygame.draw.rect(graph_surface, GREEN, rect, border_radius=8) 
