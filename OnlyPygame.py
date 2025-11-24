@@ -6,8 +6,15 @@ from tkinter import filedialog
 import networkx as nx
 import math
 import ast
+import re
 
 filePath = ''
+
+filetypestext = ("png", "jpg", "tiff")
+
+save_file_buttons = {}
+name_input = None
+enter_name = None
 
 # File dialog setup
 root = tk.Tk()
@@ -190,9 +197,48 @@ save_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect(-500,-500, 
 def make_ui():
     pygame.draw.rect(screen, GREEN, (0,0,256,768))
     
+# Text filed creation
+name_input = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(-500, 252, 300, 25), manager=manager)
+name_input.enable()
+enter_name = pygame_gui.elements.UIButton(relative_rect=pygame.Rect(-500, 252, 100, 25), text="Save", manager=manager)    
+    
+def save_file():
+    global save_file_buttons, name_input, enter_name
+    
+    # Create file dialog area
+    file_dialog_box = pygame.Rect(192,192,640,384)
+    file_dialog_surface = screen.subsurface(file_dialog_box)
+    
+    # pygame.draw.rect(file_dialog_surface, BLUE, (0,0,640,384))
+    
+    # Text setup
+    text = font1.render("Enter File Name Then Select Extension", True, BLACK)
+    text_area = text.get_rect(midtop=(file_dialog_surface.get_width()//2, 10))
+    
+    name_input.set_relative_position((file_dialog_surface.get_width()//2,252))
+    enter_name.set_relative_position((file_dialog_surface.get_width()//2 + 300,252))
+    
+    
+    #Button creation
+    if len(save_file_buttons) != 3:
+        for i in range(3):
+            gapsize = 20
+            height = 32
+            width = (640 - (gapsize * 5)) // 3
+            x = (gapsize * 2 + i * width)  + 192
+            y = 588 - 192
+            
+            rect = pygame.Rect(x,y,width,height)
+            save_file_buttons[filetypestext[i]] = pygame_gui.elements.UIButton(relative_rect=rect, text=filetypestext[i], manager=manager)
+    
+    file_dialog_surface.blit(text, text_area)
+        
+    
+    
     
 is_running = True
 displayText = 0 # 0 = pre file selected, 1 = after file selected, 2 = after parse button pressed, anything else = no text display
+savefile = False
 while is_running:
 
     time_delta = clock.tick(60)/1000.0
@@ -236,7 +282,6 @@ while is_running:
                 filePath = filedialog.askopenfilename(filetypes=[("Python Files", "*.py")])
                 if filePath:
                     displayText = 1
-                    print("selected:",filePath)
             elif event.ui_element == parse_button:
                 if displayText == 1:
                     analyzedFunctions, class_to_funcs, classes = parse_file(filePath)
@@ -247,7 +292,19 @@ while is_running:
                     displayText = 3
             elif event.ui_element == save_button:
                 if displayText >= 3 and save_button.get_relative_rect().topleft == (51,672):
-                    pygame.image.save(graph_surface, "cropped_output.png")
+                    savefile = not savefile     # Toggle between True and False when button pressed 
+            elif event.ui_element == enter_name:
+                name = name_input.get_text()
+                if re.match(r".*\.(png|jpg|tiff|pdf|svg)$", name):
+                    savefile = False
+            else:
+                for ext, button in save_file_buttons.items():
+                    if event.ui_element == button:
+                        name = name_input.get_text()
+                        if not name:
+                            name = "output"
+                        name = name + "." + ext
+                        name_input.set_text(name)   
             
         manager.process_events(event)
 
@@ -362,6 +419,21 @@ while is_running:
         save_button.set_relative_position((-500, -500))
     
     make_ui()
+    
+    if savefile:
+        save_file()
+    else:
+        size = len(save_file_buttons)
+        name_input.set_relative_position((-500,252))
+        enter_name.set_relative_position((-500,252))
+        for button in save_file_buttons.items():
+            button[1].kill()
+        save_file_buttons = {}
+        if size:
+            name = name_input.get_text()
+            if name:
+                pygame.image.save(graph_surface, name)
+        
     manager.draw_ui(screen)
    
     pygame.display.update()
