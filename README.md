@@ -3,6 +3,7 @@ Duo Team, University Project for CSCI 4316 SE I F25
 
 ## Youtube Video Demo
 Click Below To Watch
+
 [![Video Demo](https://img.youtube.com/vi/3jqJw5Kf-Kw/0.jpg)](https://youtu.be/3jqJw5Kf-Kw)
 
 ## Installation
